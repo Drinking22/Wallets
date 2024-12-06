@@ -1,0 +1,27 @@
+services:
+  wallets:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8080:8080"
+    container_name: wallets
+    depends_on:
+      - db
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/wallet
+      SPRING_DATASOURCE_USERNAME: wallet
+      SPRING_DATASOURCE_PASSWORD: wallet
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_DEFAULT_SCHEMA: wallet_schema
+      SPRING_LIQUIBASE_CHANGELOG: classpath:db/changelog/db.changelog-master.xml
+  db:
+    image: postgres:12.3
+    container_name: db
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=wallet
+      - POSTGRES_PASSWORD=wallet
+      - POSTGRES_DB=wallet
