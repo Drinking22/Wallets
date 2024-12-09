@@ -11,6 +11,7 @@ import com.example.wallets.repository.WalletRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -41,6 +42,7 @@ public class WalletServiceImpl implements WalletService {
         };
     }
 
+    @Transactional
     public WalletResponse handleDeposit(Wallet wallet, WalletRequest request) {
         log.info("Depositing amount: {}", request.getAmount());
         wallet.setBalance(wallet.getBalance().add(request.getAmount()));
@@ -48,6 +50,7 @@ public class WalletServiceImpl implements WalletService {
         return new WalletResponse(wallet.getWalletId(), wallet.getBalance());
     }
 
+    @Transactional
     public WalletResponse handleWithdraw(Wallet wallet, WalletRequest request) {
         log.info("Withdraw amount: {}", request.getAmount());
         checkSufficientFunds(wallet, request);
