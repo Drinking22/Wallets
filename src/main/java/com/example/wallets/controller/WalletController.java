@@ -6,13 +6,12 @@ import com.example.wallets.service.WalletServiceImpl;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
-@Controller
-@RequestMapping("api/v1")
+@RestController
+@RequestMapping("/api/v1")
 @RequiredArgsConstructor
 @Slf4j
 public class WalletController {
