@@ -14,31 +14,76 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.UUID;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
+
+/*
+The author's fantasy on the topic of multithreading
+ */
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class WalletServiceImpl implements WalletService {
+    private static final int MAX_REQUEST_IN_SECOND = 1000;
+    private static final long RESET_TIME_INTERVAL = 1000;
 
     private final WalletRepository repository;
 
+    private final Semaphore semaphore = new Semaphore(MAX_REQUEST_IN_SECOND);
+    private final ThreadPoolExecutor executor = new ThreadPoolExecutor(50,
+            100,
+            60,
+            TimeUnit.SECONDS,
+            new LinkedBlockingQueue<>());
+
+    private long lastResetTime = System.currentTimeMillis();
+    private AtomicInteger requestCount = new AtomicInteger(0);
+
     @Override
-    public WalletResponse getWalletByUuid(UUID walletId) {
-        log.info("Get wallet by uuid id, or exception response");
-        Wallet wallet = getWallet(walletId);
-        return new WalletResponse(wallet.getWalletId(), wallet.getBalance());
+    public CompletableFuture<WalletResponse> getWalletByUuid(UUID walletId) {
+        return CompletableFuture.supplyAsync(() -> {
+            manageRateLimiting();
+            log.info("Get wallet by uuid id, or exception response");
+            Wallet wallet = getWallet(walletId);
+            return new WalletResponse(wallet.getWalletId(), wallet.getBalance());
+        }, executor);
     }
 
     @Override
-    public WalletResponse createOperationByWallet(WalletRequest request) {
-        log.info("Processing of deposits and withdrawals of cash");
-        Wallet wallet = getWallet(request.getWalletId());
-        checkNotValidJson(request);
+    public CompletableFuture<WalletResponse> createOperationByWallet(WalletRequest request) {
+        return CompletableFuture.supplyAsync(() -> {
+            manageRateLimiting();
+            log.info("Processing of deposits and withdrawals of cash");
+            Wallet wallet = getWallet(request.getWalletId());
+            checkNotValidJson(request);
 
-        return switch (request.getType()) {
-            case DEPOSIT -> handleDeposit(wallet, request);
-            case WITHDRAW -> handleWithdraw(wallet, request);
-        };
+            return switch (request.getType()) {
+                case DEPOSIT -> handleDeposit(wallet, request);
+                case WITHDRAW -> handleWithdraw(wallet, request);
+            };
+        }, executor);
+    }
+
+    private void manageRateLimiting() {
+        long currentTime = System.currentTimeMillis();
+
+        if (currentTime - lastResetTime > RESET_TIME_INTERVAL) {
+            requestCount.set(0);
+            lastResetTime = currentTime;
+        }
+
+        if (requestCount.incrementAndGet() > MAX_REQUEST_IN_SECOND) {
+            requestCount.decrementAndGet();
+            throw new RuntimeException("Too many requests, please try again later");
+        }
+
+        try {
+            semaphore.acquire();
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Request interrupted", ex);
+        }
     }
 
     public WalletResponse handleDeposit(Wallet wallet, WalletRequest request) {
