@@ -9,9 +9,9 @@ services:
     depends_on:
       - db
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/wallet
-      SPRING_DATASOURCE_USERNAME: wallet
-      SPRING_DATASOURCE_PASSWORD: wallet
+      SPRING_R2DBC_URL: r2dbc:postgresql://db:5432/wallet
+      SPRING_R2DBC_USERNAME: wallet
+      SPRING_R2DBC_PASSWORD: wallet
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_JPA_DEFAULT_SCHEMA: wallet_schema
       SPRING_LIQUIBASE_CHANGELOG: classpath:db/changelog/db.changelog-master.xml

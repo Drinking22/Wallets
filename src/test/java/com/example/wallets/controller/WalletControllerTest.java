@@ -5,7 +5,6 @@ import com.example.wallets.dto.response.WalletResponse;
 import com.example.wallets.exceptions.InsufficientFundsException;
 import com.example.wallets.exceptions.NotValidJsonException;
 import com.example.wallets.exceptions.WalletNotFoundException;
-import com.example.wallets.dto.request.OperationType;
 import com.example.wallets.service.WalletServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -17,10 +16,12 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
 import java.util.UUID;
 
+import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 
@@ -35,22 +36,23 @@ public class WalletControllerTest {
 
     private UUID walletId;
     private BigDecimal amount;
+    private WalletResponse getResponse;
 
     @BeforeEach
     public void setUp() {
         walletId = UUID.randomUUID();
         amount = BigDecimal.valueOf(1000.00);
+        getResponse = new WalletResponse(walletId, amount);
     }
 
     @Test
     @DisplayName("Checking if a response with wallet information has been received")
     void whenGetWalletByUuid_thanReturnWalletResponse() throws Exception {
-        WalletResponse getResponse = new WalletResponse(walletId, amount);
-
-        Mockito.when(service.getWalletByUuid(walletId)).thenReturn(getResponse);
+        Mockito.when(service.getWalletByUuid(walletId)).thenReturn(Mono.just(getResponse));
 
         mockMvc.perform(MockMvcRequestBuilders.get("/api/v1/wallets/{walletId}", walletId)
                         .contentType(MediaType.APPLICATION_JSON))
+                .andDo(print())
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.walletId").value(walletId.toString()))
                 .andExpect(jsonPath("$.amount").value(1000.00));
@@ -64,6 +66,7 @@ public class WalletControllerTest {
 
         mockMvc.perform(MockMvcRequestBuilders.get("/api/v1/wallets/{walletId}", walletId)
                         .contentType(MediaType.APPLICATION_JSON))
+                .andDo(print())
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error").value("Wallet not found"))
                 .andExpect(jsonPath("$.message").value("Wallet not found with id: " + walletId));
@@ -82,6 +85,7 @@ public class WalletControllerTest {
         mockMvc.perform(MockMvcRequestBuilders.post("/api/v1/wallet")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonNotValidType))
+                .andDo(print())
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("Invalid JSON"))
                 .andExpect(jsonPath("$.message").value("Invalid JSON: type must be either DEPOSIT or WITHDRAW"));
@@ -100,6 +104,7 @@ public class WalletControllerTest {
         mockMvc.perform(MockMvcRequestBuilders.post("/api/v1/wallet")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonNotValidAmount))
+                .andDo(print())
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("Invalid JSON"))
                 .andExpect(jsonPath("$.message").value("Invalid JSON: amount must be greater than zero"));
@@ -118,6 +123,7 @@ public class WalletControllerTest {
         mockMvc.perform(MockMvcRequestBuilders.post("/api/v1/wallet")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonNotValidWalledId))
+                .andDo(print())
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("Invalid JSON"))
                 .andExpect(jsonPath("$.message").value("Invalid JSON: walletId cannot be null"));
@@ -136,49 +142,9 @@ public class WalletControllerTest {
         mockMvc.perform(MockMvcRequestBuilders.post("/api/v1/wallet")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonRequest))
+                .andDo(print())
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("Not enough funds for this transaction"))
                 .andExpect(jsonPath("$.message").value("Not enough funds for this transaction"));
     }
-
-//    @Test
-//    @DisplayName("Successful deposit operation")
-//    void whenPostWalletOperation_successfulDeposit() throws Exception {
-//        WalletRequest request = new WalletRequest(walletId, OperationType.DEPOSIT, amount);
-//        WalletResponse response = new WalletResponse(walletId, amount);
-//
-//        String jsonRequest = "{\"walletId\":\"" + walletId + "\"," +
-//                "\"amount\":1000.00," +
-//                "\"type\":\"DEPOSIT\"}";
-//
-//        Mockito.when(service.createOperationByWallet(request)).thenReturn(response);
-//
-//        mockMvc.perform(MockMvcRequestBuilders.post("/api/v1/wallet")
-//                        .contentType(MediaType.APPLICATION_JSON)
-//                        .content(jsonRequest))
-//                .andExpect(status().isOk())
-//                .andExpect(jsonPath("$.walletId").value(walletId.toString()))
-//                .andExpect(jsonPath("$.amount").value(2000.00));
-//    }
-//
-//    @Test
-//    @DisplayName("Successful withdraw operation")
-//    void whenPostWalletOperation_successfulWithdraw() throws Exception {
-//        WalletRequest request = new WalletRequest(walletId, OperationType.WITHDRAW, amount);
-//        WalletResponse response = new WalletResponse(walletId, amount);
-//
-//        String jsonRequest = "{\"walletId\":\"" + walletId + "\"," +
-//                "\"amount\":1000.00," +
-//                "\"type\":\"WITHDRAW\"}";
-//
-//        Mockito.when(service.createOperationByWallet(request)).thenReturn(response);
-//
-//        mockMvc.perform(MockMvcRequestBuilders.post("/api/v1/wallet")
-//                        .contentType(MediaType.APPLICATION_JSON)
-//                        .content(jsonRequest))
-//                .andExpect(status().isOk())
-//                .andExpect(jsonPath("$.walletId").value(walletId.toString()))
-//                .andExpect(jsonPath("$.type").value("WITHDRAW"))
-//                .andExpect(jsonPath("$.amount").value(BigDecimal.ZERO));
-//    }
 }
